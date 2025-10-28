@@ -34,4 +34,5 @@ export const HTTP = {
   PORT: parseInt(process.env.PORT || '5000', 10),
 };
 
-export const UPDATE_LINK = 'https://studytrackerbydiets.netlify.app/';
+// export const UPDATE_LINK = 'https://studytrackerbydiets.netlify.app/';
+export const UPDATE_LINK = 'http://localhost:5173/';

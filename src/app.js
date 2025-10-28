@@ -8,12 +8,54 @@ import { nowLocal } from './utils/time.js';
 import { log } from './utils/log.js';
 import { UPDATE_LINK } from './config.js';
 import { MessageFlags } from 'discord.js';
+import admin from 'firebase-admin';
 import jwt from 'jsonwebtoken';
+// -------------------------------------------------
+// Restore sessions from Firestore
+// -------------------------------------------------
+async function restoreSessionsFromFirestore(sessions) {
+  const db = admin.firestore();
+  const snapshot = await db.collection('users').get();
+  let count = 0;
+  console.log('\n\nSESSIONS: ', sessions);
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.discord?.id) {
+      sessions.set(data.discord.id, doc.id);
+      count++;
+    }
+  });
+
+  log.info(`[startup] Restored ${count} linked Discord users from Firestore.`);
+}
+
+// -------------------------------------------------
+// Optional live sync with Firestore
+// // -------------------------------------------------
+function watchFirestoreForChanges(sessions) {
+  const db = admin.firestore();
+  db.collection('users').onSnapshot((snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      const data = change.doc.data();
+      const discordId = data.discord?.id;
+      if (!discordId) return;
+
+      if (change.type === 'added' || change.type === 'modified') {
+        sessions.set(discordId, change.doc.id);
+        log.info(`[sync] Linked or updated Discord user ${discordId}`);
+      } else if (change.type === 'removed') {
+        sessions.delete(discordId);
+        log.info(`[sync] Removed Discord user ${discordId}`);
+      }
+    });
+  });
+}
 export async function startApp() {
   const userService = new UserService();
   const deadlineService = new DeadlineService();
   const sessions = new UserSessionStore();
-
+  await restoreSessionsFromFirestore(sessions);
+  watchFirestoreForChanges(sessions);
   // Command handlers use DI for easy testing
   const onSignin = async (interaction) => {
     console.log('WHO AM I : ');
@@ -68,24 +110,25 @@ export async function startApp() {
     });
   };
 
-  function makeLink(discordId, tag) {
-    const token = jwt.sign({ discordId, tag }, process.env.TOKEN_ENC_KEY, {
-      expiresIn: '10m',
-    });
+  function makeLink(discordId, tag, avatarUrl) {
+    const token = jwt.sign(
+      { discordId, tag, avatar: avatarUrl },
+      process.env.TOKEN_ENC_KEY,
+      {
+        expiresIn: '10m',
+      },
+    );
+
     return `${UPDATE_LINK}link-discord?token=${token}`;
   }
   const getUserId = async (interaction) => {
-    // 1. Get the user object from the interaction
     const user = interaction.user;
-    const link = makeLink(interaction.user.id, interaction.user.tag);
+    const avatarUrl = user.displayAvatarURL({ dynamic: true, size: 256 });
+    const link = makeLink(user.id, user.tag, avatarUrl);
     console.log(link);
-    // 2. Get the ID from the user object
-    const discordId = user.id;
-
-    // 3. Send the ID in the reply
     await interaction.reply({
       content: `Link your Discord to your StudyTracker account here:\n${link}\nThis link expires in 10 minutes.`,
-      flags: MessageFlags.Ephemeral, // Makes the reply visible only to the user
+      flags: MessageFlags.Ephemeral,
     });
   };
   const bot = new DiscordBot({ commands, onSignin, onWhoami, getUserId });
