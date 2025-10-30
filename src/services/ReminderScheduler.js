@@ -77,12 +77,24 @@ export class ReminderScheduler {
 
       const lines = deadlines
         .map(
-          (d) =>
-            `- ${d.title} (Course: ${d.courseName}) → due ${fmtLocal(d.dueAt)}`,
+          (d) => `**${d.courseName}:** ${d.title}  → due ${fmtLocal(d.dueAt)}`,
         )
         .join('\n');
 
-      const msg = `Reminder for <@${discordId}>: ${title}\n${lines}\n\nTo update, visit: ${UPDATE_LINK}`;
+      const separator = '───────────────────────────────';
+      const msg = [
+        separator,
+        `**${title}**`,
+        separator,
+        '',
+        ...deadlines.map(
+          (d) => `• **${d.courseName}:** ${d.title} — due ${fmtLocal(d.dueAt)}`,
+        ),
+        '',
+        `_Update deadlines →_ <${UPDATE_LINK}>`,
+        separator,
+      ].join('\n');
+
       await channel.send(msg);
       log.info(
         `[${base.toISO()}] Posted ${title} for user ${userId} (${
