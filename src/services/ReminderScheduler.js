@@ -43,9 +43,9 @@ export class ReminderScheduler {
 
     // Today, every 30 minutes
     cron.schedule(
-      // '0,30 * * * *',
+      '0,30 * * * *',
       // '* * * * *',
-      '*/10 * * * * *',
+      // '*/10 * * * * *',
       () => this.runWindow('Deadline(s) today.', 0),
       { timezone: TZ },
     );
