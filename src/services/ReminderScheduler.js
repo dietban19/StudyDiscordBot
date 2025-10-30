@@ -54,6 +54,14 @@ export class ReminderScheduler {
   }
 
   async runWindow(title, daysAhead) {
+    // Print a short check message when the window runner starts (depends on schedule)
+    const when =
+      daysAhead === 0
+        ? 'today'
+        : daysAhead === 1
+        ? 'in 1 day'
+        : `in ${daysAhead} days`;
+    console.log(`Checking deadlines due ${when} — ${title}`);
     const channel = await this.bot.getChannel(DISCORD.CHANNEL_ID);
     if (!channel) {
       log.warn('Channel not found:', DISCORD.CHANNEL_ID);
